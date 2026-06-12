@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vulnfeed-mcp"
-version = "0.3.4"
+version = "0.3.5"
 description = "Dependency vulnerability monitoring MCP server — knows your lockfile, prioritizes by EPSS exploit probability, recommends fix versions."
 readme = "README.md"
 license = {text = "MIT"}
