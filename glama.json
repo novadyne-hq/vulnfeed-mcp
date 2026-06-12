@@ -7,7 +7,7 @@
     "name": "Novadyne",
     "url": "https://vulnfeed.novadyne.ai"
   },
-  "repository": "https://github.com/infai-tech/vulnfeed-mcp",
+  "repository": "https://github.com/novadyne-hq/vulnfeed-mcp",
   "homepage": "https://vulnfeed.novadyne.ai",
   "license": "MIT",
   "runtime": "python",

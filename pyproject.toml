@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vulnfeed-mcp"
-version = "0.3.3"
+version = "0.3.4"
 description = "Dependency vulnerability monitoring MCP server — knows your lockfile, prioritizes by EPSS exploit probability, recommends fix versions."
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
-authors = [{ name = "Novadyne", email = "support@infaicorp.com" }]
+authors = [{ name = "Novadyne", email = "support@novadyne.ai" }]
 keywords = ["mcp", "mcp-server", "security", "vulnerability", "vulnerability-scanner", "cve", "epss", "dependency-scanning", "claude-code", "x402", "micropayments", "sbom", "supply-chain-security"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -35,5 +35,5 @@ vulnfeed-mcp = "vulnfeed_mcp:main"
 
 [project.urls]
 Homepage = "https://vulnfeed.novadyne.ai"
-Repository = "https://github.com/infai-tech/vulnfeed-mcp"
-Issues = "https://github.com/infai-tech/vulnfeed-mcp/issues"
+Repository = "https://github.com/novadyne-hq/vulnfeed-mcp"
+Issues = "https://github.com/novadyne-hq/vulnfeed-mcp/issues"

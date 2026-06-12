@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.infai-tech/vulnfeed",
+  "name": "io.github.novadyne-hq/vulnfeed",
   "title": "VulnFeed",
   "description": "Dependency vulnerability scanner with EPSS scoring. 9 MCP tools. Free tier + x402.",
   "repository": {
-    "url": "https://github.com/infai-tech/vulnfeed-mcp",
+    "url": "https://github.com/novadyne-hq/vulnfeed-mcp",
     "source": "github"
   },
-  "version": "0.3.3",
+  "version": "0.3.4",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "vulnfeed-mcp",
-      "version": "0.3.3",
+      "version": "0.3.4",
       "transport": {
         "type": "stdio"
       },

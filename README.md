@@ -1,10 +1,10 @@
-<!-- mcp-name: io.github.infai-tech/vulnfeed -->
+<!-- mcp-name: io.github.novadyne-hq/vulnfeed -->
 # VulnFeed — Dependency Vulnerability Monitoring for Claude Code
 
-[![CI](https://github.com/infai-tech/vulnfeed-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/infai-tech/vulnfeed-mcp/actions/workflows/ci.yml)
+[![CI](https://github.com/novadyne-hq/vulnfeed-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/novadyne-hq/vulnfeed-mcp/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/vulnfeed-mcp)](https://pypi.org/project/vulnfeed-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![vulnfeed-mcp MCP server](https://glama.ai/mcp/servers/infai-tech/vulnfeed-mcp/badges/score.svg)](https://glama.ai/mcp/servers/infai-tech/vulnfeed-mcp)
+[![vulnfeed-mcp MCP server](https://glama.ai/mcp/servers/novadyne-hq/vulnfeed-mcp/badges/score.svg)](https://glama.ai/mcp/servers/novadyne-hq/vulnfeed-mcp)
 
 An MCP server that scans your project dependencies for known vulnerabilities, enriches with EPSS exploit probability scores, and recommends fix versions.
 
