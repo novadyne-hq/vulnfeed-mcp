@@ -1,11 +1,14 @@
-# Minimal MCP server container — enables Glama auto-introspection.
-# Production users install via `pip install vulnfeed-mcp`.
+# VulnFeed MCP server — stdio transport.
+# Built from source so the image always matches the pinned commit
+# (Docker MCP Registry builds + hosts this as mcp/vulnfeed).
 FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install from PyPI (matches the published package, no source build needed).
-RUN pip install --no-cache-dir vulnfeed-mcp==0.3.3
+COPY pyproject.toml README.md LICENSE ./
+COPY vulnfeed_mcp ./vulnfeed_mcp
 
-# stdio MCP server — Glama and other clients pipe to/from stdin/stdout.
+RUN pip install --no-cache-dir .
+
+# stdio MCP server — clients pipe to/from stdin/stdout.
 ENTRYPOINT ["vulnfeed-mcp"]

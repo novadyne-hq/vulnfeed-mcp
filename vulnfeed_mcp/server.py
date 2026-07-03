@@ -22,7 +22,7 @@ from pathlib import Path
 
 from mcp.server import FastMCP
 
-DEFAULT_WORKER_URL = "https://agent-ventures-worker.infai-tech-corporation.workers.dev"
+DEFAULT_WORKER_URL = "https://vulnfeed-api.novadyne.ai"
 WORKER_URL = os.environ.get("VULNFEED_WORKER_URL", os.environ.get("WORKER_URL", DEFAULT_WORKER_URL))
 WORKER_KEY = os.environ.get("VULNFEED_API_KEY", os.environ.get("WORKER_BOOTSTRAP_KEY", ""))
 
@@ -391,11 +391,12 @@ def check_package(name: str, version: str, ecosystem: str = "npm", show_all: boo
     Args:
         name: Package name (e.g. "express", "django", "golang.org/x/net").
         version: Package version (e.g. "4.18.2", "3.2.0").
-        ecosystem: Package ecosystem — "npm", "PyPI", or "Go". Defaults to "npm".
+        ecosystem: Package ecosystem — "npm", "PyPI", "Go", "crates.io", "RubyGems", or "Packagist". Defaults to "npm".
         show_all: Show all vulnerabilities including low-priority ones.
     """
-    if ecosystem not in ("npm", "PyPI", "Go"):
-        return f"Error: unsupported ecosystem '{ecosystem}'. Use npm, PyPI, or Go."
+    valid = ("npm", "PyPI", "Go", "crates.io", "RubyGems", "Packagist")
+    if ecosystem not in valid:
+        return f"Error: unsupported ecosystem '{ecosystem}'. Use one of: {', '.join(valid)}."
 
     data = _query_worker([{"name": name, "version": version, "ecosystem": ecosystem}])
     if not data.get("ok"):
