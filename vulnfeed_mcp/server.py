@@ -409,6 +409,36 @@ def check_package(name: str, version: str, ecosystem: str = "npm", show_all: boo
     return _format_results(results, 1, show_all=show_all)
 
 
+def _format_paywall(cve_id: str, body: str) -> str:
+    """Render an HTTP 402 from the paid CVE endpoint as a legible paywall.
+
+    lookup_cve maps to a pay-per-call x402 endpoint, so free/keyless clients get a
+    402. Surface that as a clear paywall — with the free alternatives and the x402
+    challenge preserved for machine clients — instead of a raw "Backend HTTP 402"
+    error dump that reads like the tool is broken.
+    """
+    lines = [
+        f"🔒 lookup_cve for {cve_id} requires payment — it is a pay-per-call "
+        "endpoint ($0.002 per lookup, settled over x402 on Base).",
+        "",
+        "Free & keyless (no payment needed) — use these instead:",
+        "  • check_package — check a specific package@version for known CVEs (EPSS-ranked)",
+        "  • scan_lockfile / scan_project — scan your dependencies, prioritized by exploit probability",
+        "",
+        "To use lookup_cve: set VULNFEED_API_KEY, or pay per call with an x402-capable client.",
+    ]
+    try:
+        challenge = json.loads(body)
+        res = challenge.get("resource") or {}
+        if isinstance(res, dict):
+            url = res.get("url") or res.get("resource")
+            if url:
+                lines.append(f"  x402 resource: {url}")
+    except Exception:
+        pass
+    return "\n".join(lines)
+
+
 @mcp.tool()
 def lookup_cve(cve_id: str) -> str:
     """Look up detailed information about a specific vulnerability.
@@ -430,6 +460,8 @@ def lookup_cve(cve_id: str) -> str:
         if e.code == 404:
             return f"Vulnerability {cve_id} not found in NVD/GHSA databases."
         body = e.read().decode() if e.fp else ""
+        if e.code == 402:
+            return _format_paywall(cve_id, body)
         return f"Error: Backend HTTP {e.code}: {body}"
     except Exception as e:
         return f"Error: Backend unreachable: {e}"
