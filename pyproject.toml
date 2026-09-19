@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vulnfeed-mcp"
-version = "0.3.8"
+version = "0.3.9"
 description = "Dependency vulnerability monitoring MCP server — knows your lockfile, prioritizes by EPSS exploit probability, recommends fix versions."
 readme = "README.md"
 license = {text = "MIT"}
@@ -28,7 +28,7 @@ classifiers = [
     "Operating System :: OS Independent",
     "Typing :: Typed",
 ]
-dependencies = ["mcp>=1.0,<2"]   # mcp 2.x renamed FastMCP → MCPServer (2026-09); pinned until the server is migrated
+dependencies = ["mcp>=1.0"]   # 1.x (FastMCP) and 2.x (MCPServer) both supported — see the import in server.py
 
 [project.scripts]
 vulnfeed-mcp = "vulnfeed_mcp:main"

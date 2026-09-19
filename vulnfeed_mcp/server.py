@@ -20,7 +20,13 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-from mcp.server import FastMCP
+# mcp 2.x renamed FastMCP → MCPServer (mcp.server.mcpserver); 1.x exports FastMCP. Support both so
+# `uvx vulnfeed-mcp` works whichever the resolver picks. Everything this server uses is the same on
+# both: name + keyword instructions, @mcp.tool() on sync functions, run(transport=...).
+try:  # mcp >= 2
+    from mcp.server.mcpserver import MCPServer as FastMCP
+except ImportError:  # mcp 1.x
+    from mcp.server.fastmcp import FastMCP
 
 DEFAULT_WORKER_URL = "https://vulnfeed-api.novadyne.ai"
 WORKER_URL = os.environ.get("VULNFEED_WORKER_URL", os.environ.get("WORKER_URL", DEFAULT_WORKER_URL))

@@ -7,12 +7,12 @@
     "url": "https://github.com/novadyne-hq/vulnfeed-mcp",
     "source": "github"
   },
-  "version": "0.3.8",
+  "version": "0.3.9",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "vulnfeed-mcp",
-      "version": "0.3.8",
+      "version": "0.3.9",
       "transport": {
         "type": "stdio"
       },
