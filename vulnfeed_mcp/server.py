@@ -640,20 +640,38 @@ def _delete_worker(path: str) -> dict:
 
 
 @mcp.tool()
-def monitor_project(project_path: str = ".", project_name: str = "") -> str:
+def monitor_project(project_path: str = ".", project_name: str = "", webhook_url: str = "") -> str:
     """Register a project for continuous vulnerability monitoring.
 
     Scans the project's lockfiles, records the current vulnerability baseline,
     and stores a snapshot. Use check_alerts later to see new vulnerabilities
     that appeared since registration.
 
+    With webhook_url set, VulnFeed re-scans the project on a schedule (hourly on
+    the paid tier, daily on the free tier) and POSTs any NEW findings to that URL
+    as JSON, signed with HMAC-SHA256 in the X-VulnFeed-Signature header using the
+    webhook_secret returned here — once. Without it, monitoring is pull-only:
+    nothing happens until check_alerts is called.
+
     Args:
         project_path: Path to the project root. Defaults to current directory.
         project_name: Human-readable name for the project. Defaults to directory name.
+        webhook_url: Optional https URL to receive new findings (CI hook, Slack/Discord
+            relay, your own endpoint). Must be a public https hostname. Requires
+            VULNFEED_API_KEY (webhooks are a paid feature).
     """
     project = Path(project_path).resolve()
     if not project.is_dir():
         return f"Error: not a directory: {project_path}"
+
+    if webhook_url and not WORKER_KEY:
+        return (
+            "Webhook (push) monitoring is a paid feature. Set VULNFEED_API_KEY to a license key "
+            "(https://vulnfeed.novadyne.ai, $14/mo, unlimited projects, no expiry), or — for agents "
+            "paying per use — POST /vulnscan/monitor over x402 ($0.50 per project per 30 days of "
+            "hourly monitoring). Re-run without webhook_url to register on the free tier (pull-only "
+            "via check_alerts)."
+        )
 
     if not project_name:
         project_name = project.name
@@ -685,13 +703,14 @@ def monitor_project(project_path: str = ".", project_name: str = "") -> str:
             seen.add(key)
             deduped.append(p)
 
-    data = _post_worker("/vulnscan/monitor", {
-        "project_name": project_name,
-        "packages": deduped,
-    })
+    body = {"project_name": project_name, "packages": deduped}
+    if webhook_url:
+        body["notify"] = {"webhook": webhook_url}
+    data = _post_worker("/vulnscan/monitor", body)
 
     if not data.get("ok"):
-        return f"Error: {data.get('error', 'unknown')}"
+        detail = data.get("detail")
+        return f"Error: {data.get('error', 'unknown')}" + (f" — {detail}" if detail else "")
 
     lines = [
         f"## Project Registered for Monitoring",
@@ -704,12 +723,49 @@ def monitor_project(project_path: str = ".", project_name: str = "") -> str:
         f"Use `list_monitored` to see all monitored projects.",
     ]
 
+    if data.get("webhook"):
+        lines += [
+            "",
+            "### Webhook",
+            f"- **URL:** {data['webhook']}",
+            f"- **Secret (shown once — store it now):** `{data.get('webhook_secret', '')}`",
+            "- New findings are POSTed as JSON with header `X-VulnFeed-Signature: sha256=<hex>`,",
+            "  the HMAC-SHA256 of the raw request body under this secret. Verify it before trusting a delivery.",
+            "- Change or remove the webhook later with `set_webhook`.",
+        ]
+
     if data.get("initial_vulns", 0) > 0:
         lines.append("")
         lines.append(f"*{data['initial_vulns']} existing vulnerabilities recorded as baseline — "
                       f"they won't appear as new alerts. Run `scan_project` for full details.*")
 
     return "\n".join(lines)
+
+
+@mcp.tool()
+def set_webhook(project_id: str, webhook_url: str = "") -> str:
+    """Set, rotate or remove the webhook for a monitored project.
+
+    Setting a URL (even the same one) mints a NEW signing secret and returns it
+    once. Passing an empty webhook_url removes the webhook; monitoring continues
+    pull-only via check_alerts.
+
+    Args:
+        project_id: Project ID from monitor_project / list_monitored.
+        webhook_url: https URL to receive new findings, or "" to remove.
+    """
+    data = _put_worker(f"/vulnscan/monitor/{project_id}/notify", {"webhook": webhook_url or None})
+    if not data.get("ok"):
+        detail = data.get("detail")
+        return f"Error: {data.get('error', 'unknown')}" + (f" — {detail}" if detail else "")
+    if not data.get("webhook"):
+        return f"Webhook removed for `{project_id}`. {data.get('message', '')}".strip()
+    return "\n".join([
+        f"## Webhook set for `{project_id}`",
+        f"- **URL:** {data['webhook']}",
+        f"- **Secret (shown once — store it now):** `{data.get('webhook_secret', '')}`",
+        "- Deliveries carry `X-VulnFeed-Signature: sha256=<hex>` = HMAC-SHA256(secret, raw body).",
+    ])
 
 
 @mcp.tool()

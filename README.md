@@ -57,7 +57,7 @@ VulnFeed also accepts [x402](https://x402.org) micropayments — AI agents can p
 
 - $0.01 per scan
 - $0.002 per CVE lookup
-- $0.05 per project monitor setup
+- $0.50 per project per 30 days of hourly webhook monitoring (renewable; the webhook receives an `expiring` event with the renew URL a day before)
 
 ## Tools
 
@@ -74,8 +74,9 @@ VulnFeed also accepts [x402](https://x402.org) micropayments — AI agents can p
 
 | Tool | Description |
 |------|-------------|
-| `monitor_project` | Register for continuous monitoring |
+| `monitor_project` | Register for continuous monitoring (optional `webhook_url` for push alerts) |
 | `check_alerts` | New vulns since last scan |
+| `set_webhook` | Set, rotate or remove a project's webhook |
 | `update_deps` | Update snapshot after upgrading packages |
 | `list_monitored` | See all monitored projects |
 | `unmonitor_project` | Remove from monitoring |
@@ -111,7 +112,26 @@ Pass `show_all=True` to any scan tool to see everything.
 
 1. `monitor_project` — takes a baseline snapshot of current deps + known vulns
 2. `check_alerts` — diffs against baseline, surfaces only new vulns
-3. Run `check_alerts` periodically to catch newly published CVEs
+3. Either run `check_alerts` periodically, **or pass `webhook_url`** and let VulnFeed do it
+
+With a webhook (a paid feature: a license key, or for agents x402 at $0.50 per project per 30-day
+term), VulnFeed re-scans the project every hour and POSTs new findings to your URL:
+
+```json
+{
+  "event": "vulnfeed.new_vulns",
+  "delivery_id": "…", "project_id": "…", "project_name": "…", "sent_at": "…",
+  "count": 1,
+  "new_vulns": [{ "id": "GHSA-…", "package": "express", "version": "4.18.2", "severity": "HIGH",
+                  "epss": { "score": 0.42 }, "fix_version": "4.19.2", "summary": "…" }],
+  "alerts_url": "https://vulnfeed-api.novadyne.ai/vulnscan/alerts?project=…"
+}
+```
+
+Every delivery carries `X-VulnFeed-Signature: sha256=<hex>`, the HMAC-SHA256 of the raw body under
+the `webhook_secret` returned once when the webhook was set. Verify it. Failed deliveries are retried
+on later sweeps for about a day, then dropped and counted. Rotate or remove the webhook with
+`set_webhook`.
 
 ## License
 
