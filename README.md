@@ -8,7 +8,7 @@
 
 An MCP server that scans your project dependencies for known vulnerabilities, enriches with EPSS exploit probability scores, and recommends fix versions.
 
-**Free tier** — 10 scans/day, 1 monitored project, no signup required.
+**Free tier** — 10 scans/day, 1 monitored project, no signup required. Single-CVE lookup and webhooks need a license key or x402.
 
 **Homepage:** [vulnfeed.novadyne.ai](https://vulnfeed.novadyne.ai)
 
@@ -68,7 +68,7 @@ VulnFeed also accepts [x402](https://x402.org) micropayments — AI agents can p
 | `scan_project` | Auto-detect and scan all lockfiles in a directory |
 | `scan_lockfile` | Scan a specific lockfile |
 | `check_package` | Check a single package for vulnerabilities |
-| `lookup_cve` | Detailed CVE info with EPSS + fix versions |
+| `lookup_cve` | Detailed CVE info with EPSS + fix versions (license key or x402) |
 
 ### Monitoring
 
@@ -96,11 +96,11 @@ VulnFeed also accepts [x402](https://x402.org) micropayments — AI agents can p
 ## How it works
 
 1. Parses your lockfile to extract dependency names + versions
-2. Queries OSV.dev (NVD + GitHub Advisories) for known CVEs
+2. Queries OSV.dev (GitHub Advisories plus each ecosystem's security database) for known CVEs
 3. Enriches with EPSS exploit probability scores
 4. Filters noise — suppresses low-EPSS, non-critical CVEs by default
 5. Sorts by exploitability — most likely to be exploited first
-6. Returns fix version recommendations from package registries
+6. Returns fix versions from each advisory's affected-version ranges
 
 ### Smart filtering
 

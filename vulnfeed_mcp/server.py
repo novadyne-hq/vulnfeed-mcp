@@ -20,6 +20,8 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
+from cvss import CVSS2, CVSS3, CVSS4
+
 # mcp 2.x renamed FastMCP → MCPServer (mcp.server.mcpserver); 1.x exports FastMCP. Support both so
 # `uvx vulnfeed-mcp` works whichever the resolver picks. Everything this server uses is the same on
 # both: name + keyword instructions, @mcp.tool() on sync functions, run(transport=...).
@@ -45,7 +47,7 @@ mcp = FastMCP(
         "VulnFeed scans your project dependencies for known vulnerabilities "
         "and monitors them continuously. "
         "It reads lockfiles (package-lock.json, requirements.txt, go.sum), "
-        "checks them against NVD, GitHub Advisories, and EPSS exploit data, "
+        "checks them against OSV.dev (GitHub Advisories and ecosystem databases) and EPSS exploit data, "
         "and returns prioritized results with fix recommendations. "
         "Use scan_project for a one-time scan, or monitor_project to register "
         "for continuous monitoring — then check_alerts to see new vulns."
@@ -82,7 +84,38 @@ def _query_worker(packages: list[dict]) -> dict:
             return {"ok": False, "error": data.get("error", "unknown")}
         all_results.extend(data.get("results", []))
 
+    for r in all_results:
+        r["vulns"] = _dedupe_vulns(r.get("vulns", []))
+        r["vuln_count"] = len(r["vulns"])
     return {"ok": True, "results": all_results}
+
+
+def _version_key(v: str) -> tuple:
+    return tuple(int(n) for n in _re.findall(r"\d+", v or ""))
+
+
+def _dedupe_vulns(vulns: list[dict]) -> list[dict]:
+    """Merge advisories that share a CVE (e.g. two GHSAs for CVE-2021-23337) into one finding.
+
+    The merged finding keeps the highest EPSS and the highest fix version, so upgrading to it
+    clears every advisory that was folded in.
+    """
+    merged: dict[str, dict] = {}
+    for v in vulns:
+        key = v.get("cve") or v.get("id")
+        if key not in merged:
+            merged[key] = dict(v)
+            continue
+        m = merged[key]
+        if (v.get("epss") or {}).get("score", 0) > (m.get("epss") or {}).get("score", 0):
+            m["epss"] = v["epss"]
+        if v.get("fix_version") and (
+            not m.get("fix_version") or _version_key(v["fix_version"]) > _version_key(m["fix_version"])
+        ):
+            m["fix_version"] = v["fix_version"]
+        if _cvss_score(v.get("severity"))[0] > _cvss_score(m.get("severity"))[0]:
+            m["severity"] = v["severity"]
+    return list(merged.values())
 
 
 # --- Lockfile parsers (mirrors scanner.py) ---
@@ -276,14 +309,43 @@ def _parse_lockfile(path: str) -> list[dict]:
     return []
 
 
-def _is_critical(severity) -> bool:
+_QUALITATIVE_FLOOR = {"CRITICAL": 9.0, "HIGH": 7.0, "MODERATE": 4.0, "MEDIUM": 4.0, "LOW": 0.1}
+
+
+def _cvss_score(severity) -> tuple[float, str]:
+    """(base score, label) from a CVSS vector or a qualitative rating; (0.0, "") if unknown.
+
+    The backend passes OSV's severity through as-is: usually a vector ("CVSS:3.1/AV:N/..."),
+    sometimes a word ("HIGH"). A bare number search would read the "3.1" version as the score.
+    """
     if not severity:
-        return False
-    s = str(severity).upper()
-    if "CRITICAL" in s:
-        return True
-    m = _re.search(r"(\d+\.?\d*)", s)
-    return m is not None and float(m.group(1)) >= 9.0
+        return 0.0, ""
+    s = str(severity).strip()
+    word = s.upper()
+    if word in _QUALITATIVE_FLOOR:
+        return _QUALITATIVE_FLOOR[word], word
+    try:
+        if s.startswith("CVSS:4"):
+            c = CVSS4(s)
+            return float(c.base_score), c.severity.upper()
+        if s.startswith("CVSS:3"):
+            c = CVSS3(s)
+            return float(c.base_score), c.severities()[0].upper()
+        c = CVSS2(s)
+        return float(c.base_score), ""
+    except Exception:
+        return 0.0, ""
+
+
+def _format_severity(severity) -> str:
+    score, label = _cvss_score(severity)
+    if not score:
+        return str(severity)
+    return f"{label} ({score:.1f})" if label else f"{score:.1f}"
+
+
+def _is_critical(severity) -> bool:
+    return _cvss_score(severity)[0] >= 9.0
 
 
 def _should_show(vuln: dict, show_all: bool = False) -> bool:
@@ -338,7 +400,7 @@ def _format_results(results: list[dict], pkg_count: int, show_all: bool = False)
             cve = v.get("cve") or v.get("id", "unknown")
             parts = [f"**{cve}**"]
             if v.get("severity"):
-                parts.append(f"Severity: {v['severity']}")
+                parts.append(f"Severity: {_format_severity(v['severity'])}")
             if v.get("epss"):
                 score = v["epss"]["score"]
                 label = "HIGH" if score >= 0.5 else "medium" if score >= 0.1 else "low"
@@ -365,7 +427,7 @@ def scan_lockfile(lockfile_path: str, show_all: bool = False) -> str:
     """Scan a lockfile for known vulnerabilities.
 
     Reads a package lockfile (package-lock.json, requirements.txt, go.sum),
-    queries NVD + GitHub Advisories, enriches with EPSS exploit probability,
+    queries OSV.dev (GitHub Advisories and ecosystem databases), enriches with EPSS exploit probability,
     and returns a prioritized vulnerability report with fix recommendations.
 
     By default, suppresses low-priority CVEs (EPSS < 10% and CVSS < 9).
@@ -464,7 +526,7 @@ def lookup_cve(cve_id: str) -> str:
             data = json.loads(resp.read())
     except urllib.error.HTTPError as e:
         if e.code == 404:
-            return f"Vulnerability {cve_id} not found in NVD/GHSA databases."
+            return f"Vulnerability {cve_id} not found in OSV.dev."
         body = e.read().decode() if e.fp else ""
         if e.code == 402:
             return _format_paywall(cve_id, body)
@@ -487,7 +549,7 @@ def lookup_cve(cve_id: str) -> str:
 
     if data.get("severity"):
         for s in data["severity"]:
-            lines.append(f"\n**Severity:** {s.get('score', s.get('type', 'unknown'))}")
+            lines.append(f"\n**Severity:** {_format_severity(s.get('score')) if s.get('score') else s.get('type', 'unknown')}")
 
     if data.get("epss"):
         score = data["epss"]["score"]
@@ -812,7 +874,7 @@ def check_alerts(project_id: str) -> str:
                 ver = f"@{v['version']}" if v.get("version") else ""
                 parts.append(f"in {v['package']}{ver}")
             if v.get("severity"):
-                parts.append(f"Severity: {v['severity']}")
+                parts.append(f"Severity: {_format_severity(v['severity'])}")
             if v.get("epss"):
                 score = v["epss"]["score"]
                 label = "HIGH" if score >= 0.5 else "medium" if score >= 0.1 else "low"
